@@ -1,18 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 
-const SYSTEM_PROMPT = `You are an expert meeting analyst. When given a meeting transcript, extract and return ONLY a JSON object with this exact structure (no markdown, no explanation):
-{
-  "title": "Short meeting title inferred from content",
-  "duration_estimate": "e.g. ~45 min",
-  "summary": "2-3 sentence executive summary of what happened",
-  "key_decisions": ["decision 1", "decision 2"],
-  "action_items": [
-    { "task": "task description", "owner": "Person Name or 'Team'", "due": "timeframe or 'TBD'" }
-  ],
-  "highlights": ["notable quote or moment 1", "notable quote or moment 2"],
-  "sentiment": "positive | neutral | tense | mixed"
-}`;
-
 const sentimentColors = {
   positive: { bg: "#d1fae5", text: "#065f46", dot: "#10b981" },
   neutral: { bg: "#e0f2fe", text: "#0c4a6e", dot: "#0ea5e9" },
@@ -85,30 +72,23 @@ export default function App() {
     setResult(null);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/summarize", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.REACT_APP_ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: `Analyze this meeting transcript:\n\n${transcript}` }],
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
       });
 
       const data = await response.json();
-      const text = data.content?.map((b) => b.text || "").join("") || "";
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
-      setResult(parsed);
+
+      if (!response.ok) {
+        setError(data?.error || "Something went wrong. Please try again.");
+        return;
+      }
+
+      setResult(data);
       setActiveTab("summary");
     } catch (err) {
-      setError("Something went wrong. Make sure the transcript is readable and try again.");
+      setError("Could not reach the server. Make sure the backend is running and try again.");
     } finally {
       setLoading(false);
     }
